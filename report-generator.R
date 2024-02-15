@@ -2,7 +2,7 @@
  
 # Location
 cat(sprintf("Current dir is: '%s'", getwd()))
-
+ 
 # CVE-2022-24765 exception
 git_safe_dir <- system(
   sprintf("git config --global --add safe.directory '%s'", getwd())
