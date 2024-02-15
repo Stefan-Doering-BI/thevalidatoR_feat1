@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
- 
+
 # Location
 cat(sprintf("Current dir is: '%s'", getwd()))
- 
+
 # CVE-2022-24765 exception
 git_safe_dir <- system(
   sprintf("git config --global --add safe.directory '%s'", getwd())
@@ -48,6 +48,22 @@ gd <- system(
 gd <- sprintf("--git-dir='%s'", gd)
 wt <- sprintf("--work-tree='%s'", pkg_dir)
 
+#riskmetric
+d_riskmetric <- pkg_dir %>%
+  riskmetric::pkg_ref() %>%
+  riskmetric::pkg_assess() %>%
+  purrr::map(1) %>%
+  lapply(as.character) %>%
+  tibble::enframe() %>%
+  tidyr::unnest(cols = dplyr::everything()) %>%
+  # add labels
+  dplyr::left_join(
+    lapply(riskmetric::all_assessments(), attributes) %>%
+      purrr::map_df(tibble::as_tibble),
+    by = c("name" = "column_name")
+  )
+
+
 validation_report_json <- data.frame(
   Field = c("document_typ","package_name","version", "repository", "commit_sha", "github_reference", "branch", "commit_date", "OS", "Platform", "System", "Execution Time"),
   Value = c("val_rep_json", #document_typ
@@ -71,6 +87,44 @@ validation_report_json <- data.frame(
             R.version$system, #System
             format(Sys.time(), tz = "UTC", usetz = TRUE) #Execution Time
   ))
+
+validation_report_json <- dplyr::bind_rows(
+  validation_report_json,
+  d_riskmetric %>%
+    dplyr::filter(
+      name %in% c(
+        "news_current", "has_vignettes",
+        "license", "downloads_1yr"
+      )
+    ) %>%
+    dplyr::rename(Field = name, Value= value) %>%
+    dplyr::select(Field, Value)
+)
+
+rcmdcheck_results <- rcmdcheck::rcmdcheck(
+  pkg_dir,
+  args = c(
+    "--timings",             # include execution times in output
+    "--no-build-vignettes",  # run vignette code, but disable pdf rendering
+    "--no-manual"            # disable pdf manual rendering
+  ),
+  quiet = TRUE
+)
+
+validation_report_json <- dplyr::bind_rows(
+  validation_report_json,
+  data.frame(
+    Field = c("rcmdcheck stdout", "rcmdcheck stderr"),
+    Value = c(rcmdcheck_results$stdout, rcmdcheck_results$stderr),
+    stringsAsFactors = FALSE
+  )
+)
+
+## Testing Coverage
+
+covr_results <- covr::package_coverage(pkg_dir)
+covr_results
+
 #creates json
 json_object <- jsonlite::toJSON(validation_report_json, pretty = TRUE)
 
