@@ -1,3 +1,5 @@
+library(magrittr)
+
 #!/usr/bin/env Rscript
 
 # Location
