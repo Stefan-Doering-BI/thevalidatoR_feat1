@@ -1,6 +1,3 @@
-#Add libraries 
-library(magrittr)
-
 #!/usr/bin/env Rscript
 
 # Location
@@ -10,6 +7,9 @@ cat(sprintf("Current dir is: '%s'", getwd()))
 git_safe_dir <- system(
   sprintf("git config --global --add safe.directory '%s'", getwd())
 )
+
+#Add libraries 
+library(magrittr)
 
 # Get the action inputs from preset env vars
 pkg_dir <- normalizePath(Sys.getenv("INPUT_REPORT_PKG_DIR", "."))
